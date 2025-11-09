@@ -1,0 +1,54 @@
+# Sinónimos (puedes ampliarlos libremente)
+columns:
+  # Identificadores
+  IDE_FISCAL_PERSONA:
+    - nif
+    - n.i.f
+    - dni
+    - nif_persona
+    - ide_fiscal_persona
+    - tax_id
+    - acreditado
+    - persona
+    - cliente
+  IDEN_FISCAL_GRUPO:
+    - nif_grupo
+    - iden_fiscal_grupo
+    - empresa
+    - grupo
+    - razon_social
+
+  # Nombres
+  DES_NOMBRE_PERSONA:
+    - nombre
+    - nombre_persona
+    - titular
+    - acreditado
+  DES_NOMBRE_GRUPO:
+    - nombre_grupo
+    - razon_social
+    - empresa
+    - grupo
+
+  # Dimensiones frecuentes
+  CALIFICACION_GRUPO:
+    - calificacion
+    - rating
+  SECTOR_COV19:
+    - sector
+    - sector_estrategico
+    - sector_eco
+
+  MES:
+    - mes
+    - periodo
+    - fecha_mes
+
+  # Métricas
+  TOTAL_RIESGO:
+    - riesgo
+    - riesgo_total
+    - total_riesgo
+  IMP_CARTERA:
+    - importe
+    - cartera

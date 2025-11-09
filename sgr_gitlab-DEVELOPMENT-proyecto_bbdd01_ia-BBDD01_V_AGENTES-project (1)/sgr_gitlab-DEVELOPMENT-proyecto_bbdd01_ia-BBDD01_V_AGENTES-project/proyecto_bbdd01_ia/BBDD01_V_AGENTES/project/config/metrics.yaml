@@ -1,0 +1,35 @@
+metrics:
+  RIESGO:
+    expr: "SUM(riesgo)"
+    unit: "EUR"
+    agg: "sum"
+    format: "€0,0.00"
+    desc: "Suma de riesgo (EUR)."
+
+  RIESGO_MEDIA:
+    expr: "AVG(riesgo)"
+    unit: "EUR"
+    agg: "avg"
+    format: "€0,0.00"
+    desc: "Riesgo medio por grupo de agregación."
+
+  RIESGO_MAX:
+    expr: "MAX(riesgo)"
+    unit: "EUR"
+    agg: "max"
+    format: "€0,0"
+    desc: "Máximo riesgo observado en el grupo."
+
+  RIESGO_MIN:
+    expr: "MIN(riesgo)"
+    unit: "EUR"
+    agg: "min"
+    format: "€0,0"
+    desc: "Mínimo riesgo observado en el grupo."
+
+  ACREDITADOS_UNICOS:
+    expr: "COUNT(DISTINCT ACREDITADO)"
+    unit: "#"
+    agg: "count_distinct"
+    format: "0,0"
+    desc: "Número de acreditados únicos en el grupo."
