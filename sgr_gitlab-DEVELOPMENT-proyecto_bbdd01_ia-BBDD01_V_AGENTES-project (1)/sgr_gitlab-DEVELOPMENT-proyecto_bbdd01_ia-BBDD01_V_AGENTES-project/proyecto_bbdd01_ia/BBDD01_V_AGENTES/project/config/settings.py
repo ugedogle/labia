@@ -6,6 +6,8 @@ Ajustes de proyecto y guardrails comunes.
 Este módulo NO realiza llamadas; solo define constantes utilizadas por tools/ y agents/.
 """
 
+import os
+
 # --- Proyecto / Regiones ---
 PROJECT_ID   = "go-cxb-bcx-data9-dtwsgrp01"
 REGION       = "europe-southwest1"
@@ -69,6 +71,7 @@ AGENT_MODELS = {
     "composer": GEMINI_MODEL_DEFAULT,
     "viz_agent": GEMINI_MODEL_DEFAULT,
     "final_auditor": GEMINI_MODEL_DEFAULT,
+    "documents": GEMINI_MODEL_DEFAULT,
 }
 
 AGENT_TEMPERATURES = {
@@ -78,4 +81,11 @@ AGENT_TEMPERATURES = {
     "composer": 0.35,
     "viz_agent": 0.25,
     "final_auditor": 0.0,
+    "documents": 0.3,
 }
+
+# --- Documentos internos / soporte GCS ---
+DOCS_BUCKET = (os.environ.get("DOCS_BUCKET") or None)
+DOCS_CATALOG_PATH = os.environ.get("DOCS_CATALOG_PATH", "config/documents_catalog.json")
+DOCS_SUMMARY_MODEL = AGENT_MODELS.get("documents", GEMINI_MODEL_DEFAULT)
+DOCS_SUMMARY_TEMPERATURE = AGENT_TEMPERATURES.get("documents", 0.3)
