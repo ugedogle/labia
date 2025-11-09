@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 import json, re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -28,6 +29,8 @@ class Plan(BaseModel):
     limit: int = 200
     viz_pref: VizPref = Field(default_factory=VizPref)
     need_web: bool = False
+    need_documents: bool = False
+    doc_topics: List[str] = Field(default_factory=list)
     privacy_mode: Optional[str] = None
     cost_guardrails: Optional[Dict[str, Any]] = None
     clarification_request: Optional[str] = None
@@ -46,6 +49,14 @@ def _normalize_metrics(metrics: List[str]) -> List[str]:
         mm = (m or "").strip()
         if mm and mm not in out:
             out.append(mm)
+    return out
+
+def _normalize_topics(values: List[str]) -> List[str]:
+    out: List[str] = []
+    for val in values or []:
+        vv = (val or "").strip()
+        if vv and vv not in out:
+            out.append(vv)
     return out
 
 def _normalize_ordering(ordering: List[Ordering], metrics: List[str]) -> List[Ordering]:
@@ -78,7 +89,8 @@ def _load_system_prompt() -> str:
         "'filters': {'MES': {'type':'range_ym','from':'YYYYMM','to':'YYYYMM'}, 'PII': {'mask': bool}}, "
         "'ordering':[{'by':str,'dir':'ASC|DESC'}], 'limit': int, "
         "'viz_pref': {'mode':'chart|table|text','chart_type': str|null}, "
-        "'need_web': bool, 'privacy_mode': str|null, 'cost_guardrails': {'enforce_limit': bool, 'max_bytes': str}|null, "
+        "'need_web': bool, 'need_documents': bool, 'doc_topics': [str], "
+        "'privacy_mode': str|null, 'cost_guardrails': {'enforce_limit': bool, 'max_bytes': str}|null, "
         "'clarification_request': str|null}\n"
         f"Si no estás seguro, usa: tables=['{TABLA_BASE_FQN}'], metrics=['SUM(TOTAL_RIESGO) AS RIESGO'], limit=200, viz_pref.mode='text'."
     )
@@ -151,6 +163,8 @@ class Orchestrator:
                 "limit": 200,
                 "viz_pref": {"mode": "text", "chart_type": None},
                 "need_web": bool(prefer_web),
+                "need_documents": False,
+                "doc_topics": [],
                 "privacy_mode": "strict",
                 "cost_guardrails": {"enforce_limit": True, "max_bytes": "2147483648"},
                 "clarification_request": None,
@@ -170,6 +184,7 @@ class Orchestrator:
         plan.metrics = _normalize_metrics(list(plan.metrics or []))
         plan.ordering = _normalize_ordering(plan.ordering, plan.metrics)
         plan.tables = _sanitize_tables(plan.tables)
+        plan.doc_topics = _normalize_topics(list(plan.doc_topics or []))
 
         if not plan.tables:
             plan.tables = [TABLA_BASE_FQN]

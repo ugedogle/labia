@@ -14,10 +14,17 @@ from agents.artifact_auditor import audit_visual
 from agents.composer import compose_response
 from agents.final_auditor import final_check
 from agents.web_agent import WebAgent
+from agents.documents_agent import DocumentsAgent
 
 from tools.bigquery_tools import execute_sql
 from tools.audit_log import log_interaction
-from config.settings import TABLA_BASE_FQN
+from tools.documents_index import select_documents
+from config.settings import (
+    TABLA_BASE_FQN,
+    DOCS_BUCKET,
+    DOCS_SUMMARY_MODEL,
+    DOCS_SUMMARY_TEMPERATURE,
+)
 
 class ChatRunner:
     """
@@ -33,6 +40,16 @@ class ChatRunner:
         self.temperature = temperature
         self._orc = Orchestrator(model=self.model, temperature=self.temperature)
         self._web = WebAgent(model=self.model, temperature=self.temperature)
+        try:
+            self._docs = DocumentsAgent(
+                bucket=DOCS_BUCKET,
+                summarizer_model=DOCS_SUMMARY_MODEL,
+                summarizer_temperature=DOCS_SUMMARY_TEMPERATURE,
+            )
+            self._docs_error: Optional[str] = None
+        except Exception as exc:
+            self._docs = None
+            self._docs_error = str(exc)
 
     # ---------- helpers ----------
     def _get_last_mes(self) -> Optional[int]:
@@ -54,17 +71,67 @@ class ChatRunner:
         except Exception as e:
             print(f"[audit_log] aviso: {e}")
 
+    def _build_document_context(self, plan, user_query: str, notes: List[str]) -> Optional[Dict[str, Any]]:
+        if not getattr(plan, "need_documents", False):
+            return None
+
+        if self._docs is None:
+            reason = self._docs_error or "agente documental no configurado"
+            notes.append(f"Contexto documental no disponible: {reason}")
+            return None
+
+        try:
+            candidates = select_documents(plan=plan, user_query=user_query, limit=3)
+        except Exception as exc:
+            notes.append(f"No se pudo seleccionar documentos internos: {exc}")
+            return None
+
+        if not candidates:
+            notes.append("El plan solicitó documentos internos pero el catálogo no devolvió coincidencias.")
+            return None
+
+        paths = [c.uri for c in candidates]
+        try:
+            payload = self._docs.read_many(paths)
+        except Exception as exc:
+            notes.append(f"No se pudieron leer documentos internos: {exc}")
+            return None
+
+        summary_res = self._docs.summarize_documents(user_query=user_query, documents=payload)
+        sources = [c.as_source() for c in candidates]
+
+        if summary_res.error:
+            notes.append(f"Resumen documental incompleto: {summary_res.error}")
+        elif summary_res.used_fallback:
+            notes.append("Resumen documental generado mediante heurística por indisponibilidad del modelo.")
+
+        if not summary_res.summary:
+            notes.append("Documentos internos consultados, pero no se obtuvo resumen automático.")
+
+        notes.append("Documentos internos consultados: " + ", ".join(paths))
+
+        return {"summary": summary_res.summary, "sources": sources}
+
     # ---------- API ----------
     def answer(self, user_query: str, show_plotly_inline=None, prefer_web: bool = False, web_only: bool = False) -> Dict[str, Any]:
         notes: List[str] = []
 
         # 0) Plan
         plan = self._orc.plan(user_query, prefer_web=(prefer_web or web_only))
+        doc_ctx = self._build_document_context(plan, user_query, notes)
 
         # 1) Rama web-only
         if web_only or (getattr(plan, "need_sql", True) is False and getattr(plan, "need_web", False)):
             web_ctx = self._web.search_and_summarize(user_query, max_results=5) or {"summary": "", "sources": []}
-            text_raw = compose_response(plan=plan, df=None, spec=None, stats={}, web_ctx=web_ctx, notes=notes)
+            text_raw = compose_response(
+                plan=plan,
+                df=None,
+                spec=None,
+                stats={},
+                web_ctx=web_ctx,
+                doc_ctx=doc_ctx,
+                notes=notes,
+            )
             text_fin = final_check(text_raw)
             text_out = text_fin["text"] if isinstance(text_fin, dict) else str(text_fin)
             self._safe_log(user_query=user_query, notes=notes, summary_text=text_out)
@@ -123,7 +190,15 @@ class ChatRunner:
             notes.append(f"Visualización omitida: {e_v}")
 
         # 5) Redacción y control final
-        text_raw = compose_response(plan=plan, df=df_checked, spec=spec, stats=stats, web_ctx=None, notes=notes)
+        text_raw = compose_response(
+            plan=plan,
+            df=df_checked,
+            spec=spec,
+            stats=stats,
+            web_ctx=None,
+            doc_ctx=doc_ctx,
+            notes=notes,
+        )
         text_fin = final_check(text_raw)
         text_out = text_fin["text"] if isinstance(text_fin, dict) else str(text_fin)
 
