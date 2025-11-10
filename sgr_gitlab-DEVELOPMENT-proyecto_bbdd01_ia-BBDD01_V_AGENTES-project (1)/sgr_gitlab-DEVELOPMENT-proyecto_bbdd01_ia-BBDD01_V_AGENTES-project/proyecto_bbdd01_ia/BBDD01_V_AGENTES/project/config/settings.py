@@ -6,6 +6,16 @@ Ajustes de proyecto y guardrails comunes.
 Este módulo NO realiza llamadas; solo define constantes utilizadas por tools/ y agents/.
 """
 
+import os
+
+# --- Documentos en GCS ---
+DOCS_GCS_BUCKET = os.getenv("DOCS_GCS_BUCKET", "")
+DOCS_GCS_PREFIX = os.getenv("DOCS_GCS_PREFIX", "")
+_DOCS_EXT = os.getenv("DOCS_ALLOWED_EXTENSIONS", ".docx")
+DOCS_ALLOWED_EXTENSIONS = tuple(
+    ext.strip().lower() for ext in _DOCS_EXT.split(",") if ext.strip()
+) or (".docx",)
+
 # --- Proyecto / Regiones ---
 PROJECT_ID   = "go-cxb-bcx-data9-dtwsgrp01"
 REGION       = "europe-southwest1"
